@@ -10,7 +10,8 @@ import EventKit
 import AlfredWorkflowScriptFilter
 
 let webexPrefix1 = "https://appleinc.webex.com/appleinc"
-let webexPrefix2 = "https://appleinc.webex.com/meet/"
+let webexPrefix2 = "https://appleinc.webex.com/"
+
 
 func getWebexLink(text: String) -> String? {
     let allLines = text.components(separatedBy: "\n")
@@ -39,7 +40,7 @@ enum OutputType {
 
 func getEvents(_ events: [EKEvent], for outPutType: OutputType) {
     let curCal = Calendar.current
-    let todayDay = curCal.component(.day, from: startTime)
+    let todayDate = curCal.component(.day, from: Date())
     var isSecondDay = false
 
     
@@ -49,7 +50,7 @@ func getEvents(_ events: [EKEvent], for outPutType: OutputType) {
         }
         
         let eventCurDay = curCal.component(.day, from: e.startDate)
-        if eventCurDay > todayDay && !isSecondDay {
+        if eventCurDay > todayDate && !isSecondDay {
             isSecondDay = true
             ScriptFilter.add(Item(title: "=========(Tomorrow)========="))
         }
@@ -65,7 +66,10 @@ func getEvents(_ events: [EKEvent], for outPutType: OutputType) {
             item.arg(e.eventIdentifier).valid()
             item.subtitle("\(eStartTime) - \(eEndTime)")
         case .webex:
-            if e.hasNotes, let webexLink = getWebexLink(text: e.notes!) {
+            if let url = e.url {
+                item.arg(url.absoluteString)
+                item.subtitle("\(eStartTime) - \(eEndTime) (webex)")
+            } else if e.hasNotes, let webexLink = getWebexLink(text: e.notes!) {
                 item.arg("\(webexLink.trimmingCharacters(in: .whitespacesAndNewlines))").valid()
                 item.subtitle("\(eStartTime) - \(eEndTime) (webex)")
             } else {
@@ -78,7 +82,7 @@ func getEvents(_ events: [EKEvent], for outPutType: OutputType) {
     }
 }
 
-func getEvent(byId eventId: String, inEventStore eventStore: EKEventStore) {
+func getEvent(byId eventId: String, inEventStore eventStore: EKEventStore, _ completionHandler: @escaping () -> ()) {
     eventStore.requestAccess(to: .event, completion: { _,_  in
         guard let event = eventStore.event(withIdentifier: eventId) else {
             ScriptFilter.add(Item(title: "There is no event with such id: \(eventId)"))
@@ -107,22 +111,25 @@ func getEvent(byId eventId: String, inEventStore eventStore: EKEventStore) {
                 guard p != event.organizer else {
                     continue
                 }
-                
+
                 if p.isCurrentUser {
                     ScriptFilter.add(Item(title: "Awesome Me"))
                 } else if p.participantType == .person {
+                    let pName = "\(p.name ?? "No name") (\(p.participantRole == .optional ? "optional": "required"))"
                     switch p.participantStatus {
                     case .declined:
-                        ScriptFilter.add(Item(title: p.name ?? "No name").subtitle("declined"))
+                        ScriptFilter.add(Item(title: pName).subtitle("declined"))
                     case .tentative:
-                        ScriptFilter.add(Item(title: p.name ?? "No name").subtitle("maybe"))
+                        ScriptFilter.add(Item(title: pName).subtitle("maybe"))
                     default:
-                        ScriptFilter.add(Item(title: p.name ?? "No name").subtitle("attend"))
+                        ScriptFilter.add(Item(title: pName).subtitle("attend"))
                     }
                 }
             }
         }
+//        completionHandler()
     })
     
+    //TODO: - fix completionhandler so that we don't need to rely on this pause
     Thread.sleep(forTimeInterval: 0.5)
 }
