@@ -52,10 +52,13 @@ func getEvents(_ events: [EKEvent], for outPutType: OutputType) {
         let eventCurDay = curCal.component(.day, from: e.startDate)
         if eventCurDay > todayDate && !isSecondDay {
             isSecondDay = true
-            ScriptFilter.add(Item(title: "=========(Tomorrow)========="))
+            ScriptFilter.add(Item(title: "=========(Tomorrow)=========").icon(Icon(path: "clocks/0_00.png")))
         }
         
         let item = Item(title: e.title ?? "No Title")
+        let eHour = curCal.component(.hour, from: e.startDate)%12
+        let eMinute = abs(curCal.component(.minute, from: e.startDate) - 30) < 15 ? "30" : "00"
+        item.icon(Icon(path: "clocks/\(eHour)_\(eMinute).png"))
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         let eStartTime = formatter.string(from: e.startDate)
